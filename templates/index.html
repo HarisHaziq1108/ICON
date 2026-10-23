@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ page_title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  <header class="page-header profiler-header">
+    <div>
+      <p class="eyebrow">iCON - Integrated Resource Cost and Economics Toolkit</p>
+      <h1>Technical data input</h1>
+      <p class="range-label">{{ start_year }} to {{ end_year }}</p>
+    </div>
+    <nav class="page-nav" aria-label="Profiler navigation">
+      <a class="secondary-link" href="{{ url_for('home.range_setup') }}">Change period</a>
+      <a class="nav-link" href="{{ url_for('economics.dashboard', start_year=start_year, end_year=end_year, profile_type=profile_type) }}">iCON Economics</a>
+    </nav>
+  </header>
+
+  {% if workbook_error %}
+    <div class="workbook-error" role="alert">{{ workbook_error }}</div>
+  {% endif %}
+
+  <form id="profilerForm">
+    <input type="hidden" name="start_year" value="{{ start_year }}">
+    <input type="hidden" name="end_year" value="{{ end_year }}">
+    <input type="hidden" name="profile_type" value="{{ profile_type }}">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr class="leap-row">
+            <th class="sticky-col leap-label">Leap Check<br><span class="leap-hint">(0 = leap year; otherwise years since the last leap year)</span></th>
+            <th class="unit-col"></th>
+            <th class="leap-total-gap" aria-hidden="true"></th>
+            {% for year in years %}
+              <th class="leap-cell">{{ leap_indicators[year] }}</th>
+            {% endfor %}
+          </tr>
+          <tr>
+            <th class="sticky-col">Year</th>
+            <th class="unit-col"></th>
+            <th class="total-col">Total</th>
+            {% for year in years %}
+              <th class="year-number-cell">{{ year }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr class="{{ 'calc-row' if row.type == 'calc' else 'input-row' }}">
+            <td class="sticky-col {{ 'calc-label' if row.type == 'calc' else '' }}">
+              {{ row.display_label }}
+            </td>
+            <td class="unit-cell">{{ row.unit }}</td>
+            <td class="total-cell" data-total-key="{{ row.key if row.type == 'input' else row.label }}">
+              {{ totals.get(row.key if row.type == 'input' else row.label, '-') }}
+            </td>
+            {% for year in years %}
+              {% if row.type == 'input' %}
+                <td>
+                  <input
+                    type="number"
+                    step="any"
+                    name="{{ row.key }}_{{ year }}"
+                    {{ 'disabled' if workbook_error else '' }}
+                    value="{{ existing.get(row.key, {}).get(year, '') if existing.get(row.key, {}).get(year, '') not in ['', 0, '0'] else '' }}"
+                  >
+                </td>
+              {% else %}
+                <td class="calc-cell" data-calc-label="{{ row.label }}" data-year="{{ year }}">{{ calc_display.get(row.label, {}).get(year, '') }}</td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="actions">
+      <a href="{{ url_for('home.range_setup') }}" class="secondary-btn">Back</a>
+      <button type="button" id="resetBtn" class="reset-btn">
+        {{ 'Back up damaged workbook and start fresh' if workbook_error else 'Reset all data' }}
+      </button>
+      <span id="saveStatus" class="save-status">
+        {{ 'Saving is disabled until the damaged workbook is backed up.' if workbook_error else 'Autosave is on' }}
+      </span>
+      <span class="legend"><span class="legend-swatch"></span> calculated (read-only)</span>
+    </div>
+  </form>
+
+  <script>
+    const form = document.getElementById('profilerForm');
+    const statusEl = document.getElementById('saveStatus');
+    const resetBtn = document.getElementById('resetBtn');
+    const workbookIsDamaged = {{ 'true' if workbook_error else 'false' }};
+
+    function setStatus(text, isError) {
+      statusEl.textContent = text;
+      statusEl.classList.toggle('save-status-error', !!isError);
+    }
+
+    async function readJsonResponse(response) {
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(
+          `Unexpected server response (HTTP ${response.status}); expected JSON.`
+        );
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(`Server returned invalid JSON (HTTP ${response.status}).`);
+      }
+      if (!response.ok) throw new Error(data.error || `Request failed (HTTP ${response.status}).`);
+      return data;
+    }
+
+    // Debounce so we don't fire a request on every single keystroke
+    function debounce(fn, delay) {
+      let timer = null;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+      };
+    }
+
+    function applyCalculations(calculations, totals) {
+      for (const label in calculations) {
+        const yearMap = calculations[label];
+        for (const year in yearMap) {
+          const cell = document.querySelector(
+            `.calc-cell[data-calc-label="${CSS.escape(label)}"][data-year="${year}"]`
+          );
+          if (cell) cell.textContent = yearMap[year];
+        }
+      }
+
+      if (totals) {
+        document.querySelectorAll('.total-cell').forEach((cell) => {
+          const key = cell.dataset.totalKey;
+          if (key in totals) {
+            cell.textContent = totals[key];
+          }
+        });
+      }
+    }
+
+    async function autosave() {
+      setStatus('Saving…');
+      try {
+        const formData = new FormData(form);
+        const res = await fetch('/autosave', { method: 'POST', body: formData });
+        const data = await readJsonResponse(res);
+        applyCalculations(data.calculations, data.totals);
+        const now = new Date().toLocaleTimeString();
+        setStatus(`Saved at ${now}`);
+      } catch (err) {
+        setStatus(err.message || 'Autosave failed — check the server', true);
+      }
+    }
+
+    const debouncedAutosave = debounce(autosave, 600);
+
+    if (!workbookIsDamaged) {
+      fetch('/profiler-state', { method: 'POST', body: new FormData(form) }).catch(() => {});
+    }
+
+    form.addEventListener('input', (e) => {
+      if (!workbookIsDamaged && e.target.matches('input[type="number"]')) {
+        debouncedAutosave();
+      }
+    });
+
+    resetBtn.addEventListener('click', async () => {
+      const confirmation = workbookIsDamaged
+        ? 'The damaged workbook will be backed up, and this profile will start blank. Continue?'
+        : 'This clears every value for this input selection. A backup will be kept. Continue?';
+      const confirmed = confirm(confirmation);
+      if (!confirmed) return;
+
+      setStatus('Resetting…');
+      try {
+        const res = await fetch('/reset', { method: 'POST', body: new FormData(form) });
+        await readJsonResponse(res);
+        window.location.reload();
+      } catch (err) {
+        setStatus(err.message || 'Reset failed — check the server', true);
+      }
+    });
+  </script>
+
+</body>
+</html>

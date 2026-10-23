@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+</head>
+<body>
+  <main class="page-shell">
+    <header class="overview-header">
+      <div class="overview-title">
+        <p class="eyebrow">iCON ECONOMICS</p>
+        <h1>Project overview</h1>
+      </div>
+      <div class="header-tools">
+        <p class="as-of">Information as of <time id="asOfDate"></time></p>
+        <div class="dashboard-controls">
+          <a id="profilerLink" class="nav-link" href="{{ url_for('profiler.index', start_year=start_year, end_year=end_year, profile_type=profile_type) }}">Profiler</a>
+          <label class="profile-type-control">
+            <span>Input selection</span>
+            <select id="profileType" aria-label="Input selection">
+              <option value="notional" {{ 'selected' if profile_type == 'notional' else '' }}>Notional</option>
+              <option value="complete" {{ 'selected' if profile_type == 'complete' else '' }}>Complete</option>
+            </select>
+          </label>
+          <label class="range-control">
+            <span>Years</span>
+            <select id="startYear" aria-label="Start year">
+              {% for year in range(2020, 2061) %}<option value="{{ year }}" {{ 'selected' if year == start_year else '' }}>{{ year }}</option>{% endfor %}
+            </select>
+            <span>to</span>
+            <select id="endYear" aria-label="End year">
+              {% for year in range(2020, 2061) %}<option value="{{ year }}" {{ 'selected' if year == end_year else '' }}>{{ year }}</option>{% endfor %}
+            </select>
+          </label>
+        </div>
+      </div>
+    </header>
+
+    <section class="scenario-panel" aria-label="Price and technical sensitivities">
+      <div class="scenario-controls">
+        <label class="scenario-select-control">
+          <span>Price selection</span>
+          <select id="priceScenario" aria-label="Price selection">
+            <option value="base">Base KPBI FY2027</option>
+            <option value="low">Low KPBI FY2027</option>
+            <option value="high">High KPBI FY2027</option>
+            <option value="custom">Custom Price</option>
+          </select>
+        </label>
+        <div class="price-selection-summary">
+          <span id="priceScenarioLabel">Base KPBI FY2027</span>
+          <small id="priceRangeSummary">Annual prices from Price Input.xlsx</small>
+        </div>
+      </div>
+
+      <div class="price-sensitivity-controls">
+        <label class="scenario-number-control">
+          <span>Gas price sensitivity (MRP)</span>
+          <span class="mrp-adjustment">
+            <button type="button" id="mrpDecrease" aria-label="Decrease MRP by 0.05">−</button>
+            <input id="mrpInput" type="number" min="0" max="100" step="0.05" value="{{ default_mrp }}" aria-label="Gas price sensitivity MRP">
+            <button type="button" id="mrpIncrease" aria-label="Increase MRP by 0.05">+</button>
+          </span>
+        </label>
+        <div class="gas-price-equivalent">
+          <span id="gasPriceEquivalentLabel">Approx. gas price at reference year</span>
+          <strong id="gasPriceEquivalent">-</strong>
+          <small>USD/MMBtu</small>
+        </div>
+        <small class="mrp-help">Each click changes MRP by 0.05. The equivalent scales the selected KPBI gas curve and is shown to 2 decimals; custom gas prices are used directly.</small>
+      </div>
+
+      <div id="customPriceSettings" class="custom-price-settings">
+        <div class="custom-price-heading">Custom Price Setting</div>
+        <label class="scenario-number-control">
+          <span>Liquid price</span>
+          <input id="customLiquidPrice" type="number" min="0" step="0.01" value="{{ default_custom_liquid_price }}">
+          <small>USD/bbl</small>
+        </label>
+        <label class="scenario-number-control">
+          <span>Gas price</span>
+          <input id="customGasPrice" type="number" min="0" step="0.01" value="{{ default_custom_gas_price }}">
+          <small>USD/MMBtu</small>
+        </label>
+        <label class="scenario-number-control">
+          <span>Reference year</span>
+          <input id="customReferenceYear" type="number" min="2020" max="2060" step="1" value="{{ default_custom_reference_year }}">
+        </label>
+        <label class="scenario-number-control">
+          <span>Escalation rate</span>
+          <input id="customEscalationRate" type="number" min="0" max="100" step="0.1" value="{{ default_custom_escalation_rate }}">
+          <small>%</small>
+        </label>
+        <small class="custom-price-help">Custom prices start from the Base KPBI prices at the reference year; edit them to set a different starting price.</small>
+      </div>
+
+      <div class="technical-sensitivity-controls">
+        <div class="technical-sensitivity-heading">
+          <span>Technical data sensitivity</span>
+          <button type="button" id="resetScenarioSettings" class="reset-scenario-btn">Reset</button>
+        </div>
+        <div class="sensitivity-controls">
+          <label class="sensitivity-control"><span>Production</span><span class="sensitivity-input-wrap"><input class="sensitivity-input" data-sensitivity="production" type="number" min="0" max="1000" step="5" value="100" aria-label="Production sensitivity percentage"><b>%</b></span></label>
+          <label class="sensitivity-control"><span>Capex</span><span class="sensitivity-input-wrap"><input class="sensitivity-input" data-sensitivity="capex" type="number" min="0" max="1000" step="5" value="100" aria-label="Capex sensitivity percentage"><b>%</b></span></label>
+          <label class="sensitivity-control"><span>Opex</span><span class="sensitivity-input-wrap"><input class="sensitivity-input" data-sensitivity="opex" type="number" min="0" max="1000" step="5" value="100" aria-label="Opex sensitivity percentage"><b>%</b></span></label>
+          <label class="sensitivity-control"><span>Abex</span><span class="sensitivity-input-wrap"><input class="sensitivity-input" data-sensitivity="abex" type="number" min="0" max="1000" step="5" value="100" aria-label="Abex sensitivity percentage"><b>%</b></span></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="metric-strip" aria-label="Range overview">
+      <article class="metric-card metric-oil"><p>Oil production</p><div><strong id="oilKpi">-</strong><span>MMSTB</span></div></article>
+      <article class="metric-card metric-gas"><p>Gas production</p><div><strong id="gasKpi">-</strong><span>BSCF</span></div></article>
+      <article class="metric-card metric-condy"><p>Condy production</p><div><strong id="condyKpi">-</strong><span>MMSTB</span></div></article>
+      <article class="metric-card metric-capex"><p>Total capex</p><div><strong id="capexKpi">-</strong><span>USD mil</span></div></article>
+      <article class="metric-card metric-opex"><p>Total opex</p><div><strong id="opexKpi">-</strong><span>USD mil</span></div></article>
+      <article class="metric-card metric-abex"><p>Total abex</p><div><strong id="abexKpi">-</strong><span>USD mil</span></div></article>
+    </section>
+
+    <section class="project-economics" aria-labelledby="projectEconomicsTitle">
+      <div class="project-economics-heading">
+        <div>
+          <h2 id="projectEconomicsTitle">Project viability</h2>
+          <p><a id="cashFlowInputLink" href="{{ url_for('profiler.index', start_year=start_year, end_year=end_year, profile_type=profile_type) }}">Enter annual liquid cost allocations</a> in the profiler; NCF uses selected annual prices and workbook fiscal calculations</p>
+        </div>
+      </div>
+      <div class="project-economics-grid">
+        <article class="economics-metric"><span>NPV0</span><strong id="npv0Value">-</strong><small>USD mil</small></article>
+        <article class="economics-metric"><span id="npvWaccLabel">NPV@9% (2026)</span><strong id="npvWaccValue">-</strong><small>USD mil</small></article>
+        <article class="economics-metric"><span>Project IRR</span><strong id="projectIrrValue">-</strong><small>%</small></article>
+        <article class="economics-metric"><span>Econ Limit</span><strong id="economicLimitValue">-</strong><small>year</small></article>
+        <article class="economics-metric viability-metric">
+          <span>Viability Check</span>
+          <div class="viability-result">
+            <span id="viabilityIcon" class="viability-icon viability-unknown" role="img" aria-label="IRR unavailable">
+              <svg viewBox="0 0 48 48" aria-hidden="true">
+                <path d="M14 7h20l3 6v22l-3 6H14l-3-6V13z" />
+                <path d="M12 15h24M12 33h24M17 10v5m14-5v5M17 33v5m14-5v5M16 20h16M16 28h16" />
+              </svg>
+            </span>
+            <strong id="viabilityText">IRR unavailable</strong>
+          </div>
+          <small id="viabilityCondition">IRR unavailable</small>
+        </article>
+      </div>
+      <details class="economics-formula">
+        <summary>Formula basis</summary>
+        <p>KPBI gas prices are multiplied by MRP to resolve USD/MMBtu; custom gas prices are already USD/MMBtu and use the workbook's reference-year escalation formula. Workbook NCF = Revenue - Royalty - CAPEX - OPEX - ABEX - Export Duty - PITA. Royalty is 10% of total revenue; export duty is 10% of positive liquid revenue net of liquid royalty and the entered liquid cost base. PITA is 38% after the workbook's 28% initial and 8% following-nine-year depreciation allowances, QPE carry-forward, and adjusted-loss carry-forward. The cutoff year is the first year where cumulative revenue less OPEX reaches its maximum; NCF after that year is zero. Blank liquid capex/opex/abex allocations are treated as zero.</p>
+        <p>NPV0 = NPV(0%, annual NCF) &times; (1 + 0%). NPV@WACC = NPV(WACC, annual NCF) &times; (1 + WACC)<sup>Disc_Year - start year + 1</sup>, using the workbook's 2026 Disc_Year default. Project IRR = IRR(annual NCF series). If IRR is unavailable but both NPV0 and NPV@WACC are positive, IRR is assumed to be 30%. Economic limit display = MAX(year where gated NCF &ne; 0, selected start year).</p>
+        <p>Red: IRR &lt; 11% (not viable). Yellow: 11% &le; IRR &lt; 20% (viable). Green: IRR &ge; 20%, or both NPV0 and NPV@WACC are positive and IRR is assumed to be 30%.</p>
+      </details>
+    </section>
+
+    <section class="year-overview" aria-labelledby="yearOverviewTitle">
+      <div class="section-heading rail-heading">
+        <div><h2 id="yearOverviewTitle">Annual overview</h2><p>Production and cost by year</p></div>
+        <div class="rail-buttons">
+          <button type="button" id="yearRailPrev" class="rail-button" aria-label="Scroll to previous years">&lsaquo;</button>
+          <button type="button" id="yearRailNext" class="rail-button" aria-label="Scroll to later years">&rsaquo;</button>
+        </div>
+      </div>
+      <div id="yearRail" class="year-rail" aria-live="polite"></div>
+    </section>
+
+    <section class="analysis-section" aria-labelledby="analysisTitle">
+      <div class="section-heading analysis-heading">
+        <div><h2 id="analysisTitle">Annual economics</h2><p>Production and cost profiles across the selected period</p></div>
+        <span id="dataStatus" class="data-status">Loading</span>
+      </div>
+      <div class="chart-grid" aria-label="Annual production and cost charts">
+        <article class="chart-panel"><h3>Oil production <span>kbbl/d</span></h3><div id="oilChart" class="chart"></div></article>
+        <article class="chart-panel"><h3>Condy production <span>kbbl/d</span></h3><div id="condyChart" class="chart"></div></article>
+        <article class="chart-panel"><h3>Gas production <span>mmscf/d</span></h3><div id="gasChart" class="chart"></div></article>
+        <article class="chart-panel"><h3>Capex <span>USD mil</span></h3><div id="capexChart" class="chart"></div></article>
+        <article class="chart-panel"><h3>Opex <span>USD mil</span></h3><div id="opexChart" class="chart"></div></article>
+        <article class="chart-panel"><h3>Abex <span>USD mil</span></h3><div id="abexChart" class="chart"></div></article>
+      </div>
+    </section>
+
+    <section class="economics-overview" aria-label="Cash flow, revenue split, and sensitivity overview">
+      <article class="overview-card cash-flow-card">
+        <h2>Project Net Cash Flow (USD Mil)</h2>
+        <div id="projectCashFlowChart" class="overview-chart" role="img" aria-label="Annual and cumulative project net cash flow"></div>
+      </article>
+      <article class="overview-card revenue-split-card">
+        <h2>Revenue Split (USD Bil)</h2>
+        <div class="revenue-chart-layout">
+          <div id="revenueSplitChart" class="overview-chart" role="img" aria-label="Stacked bars for gross revenue, cost breakdown, and project net cash flow"></div>
+          <ul class="revenue-chart-legend" aria-label="Cost breakdown legend">
+            <li><span class="legend-pita"></span>PITA</li>
+            <li><span class="legend-export-duty"></span>Export Duty</li>
+            <li><span class="legend-royalty"></span>Royalty</li>
+            <li><span class="legend-project-cost"></span>Project Cost</li>
+          </ul>
+        </div>
+      </article>
+      <article class="overview-card sensitivity-card">
+        <div class="sensitivity-card-heading">
+          <button type="button" id="recalculateSensitivity">Recalculate<br>Sensitivity</button>
+          <h2>Sensitivity Table</h2>
+        </div>
+        <table class="sensitivity-table">
+          <colgroup>
+            <col class="sensitivity-category-column">
+            <col class="sensitivity-metric-column">
+            <col>
+            <col>
+            <col>
+          </colgroup>
+          <thead>
+            <tr>
+              <th colspan="2"></th>
+              <th>-40%</th>
+              <th>Base Case</th>
+              <th>+40%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for name, label in [('production', 'Production'), ('capex', 'CAPEX'), ('opex', 'OPEX')] %}
+              <tr class="sensitivity-irr-row" data-sensitivity-row="{{ name }}">
+                <th scope="rowgroup" rowspan="2">{{ label }}</th>
+                <th class="sensitivity-metric-label" scope="row">IRR</th>
+                {% for case in ['minus', 'base', 'plus'] %}
+                  <td data-sensitivity-case="{{ case }}" data-sensitivity-metric="irr">-</td>
+                {% endfor %}
+              </tr>
+              <tr class="sensitivity-npv-row" data-sensitivity-row="{{ name }}">
+                <th class="sensitivity-metric-label sensitivity-npv-label" scope="row">
+                  <span>NPV</span><small>USD mil</small>
+                </th>
+                {% for case in ['minus', 'base', 'plus'] %}
+                  <td data-sensitivity-case="{{ case }}" data-sensitivity-metric="npv0">-</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </article>
+    </section>
+
+    <section class="technical-summary" aria-labelledby="technicalSummaryTitle">
+      <div class="section-heading summary-title">
+        <div><h2 id="technicalSummaryTitle">Technical data summary</h2><p>UTC includes total development, operating, and abandonment costs</p></div>
+      </div>
+      <div class="summary-columns">
+        <section class="summary-group">
+          <h3>Production</h3>
+          <dl>
+            <div><dt>Oil</dt><dd id="oilTotal">-</dd><small>MMSTB</small></div>
+            <div><dt>Gas</dt><dd id="gasTotal">-</dd><small>BSCF</small></div>
+            <div><dt>Condy</dt><dd id="condyTotal">-</dd><small>MMSTB</small></div>
+            <div><dt>Total production</dt><dd id="productionTotal">-</dd><small>MMBOE</small></div>
+          </dl>
+        </section>
+        <section class="summary-group">
+          <h3>Costs</h3>
+          <dl>
+            <div><dt>Capex</dt><dd id="capexTotal">-</dd><small>USD mil</small></div>
+            <div><dt>Opex</dt><dd id="opexTotal">-</dd><small>USD mil</small></div>
+            <div><dt>Abex</dt><dd id="abexTotal">-</dd><small>USD mil</small></div>
+          </dl>
+        </section>
+        <section class="summary-group unit-cost-group">
+          <h3>Unit costs</h3>
+          <dl>
+            <div><dt>UDC</dt><dd id="udcValue">-</dd><small>USD/boe</small></div>
+            <div><dt>UPC</dt><dd id="upcValue">-</dd><small>USD/boe</small></div>
+            <div><dt>UAC</dt><dd id="uacValue">-</dd><small>USD/boe</small></div>
+            <div><dt>UTC</dt><dd id="utcValue">-</dd><small>USD/boe</small></div>
+            <div><dt>UTC (Gas only)</dt><dd id="utcGasValue">-</dd><small>USD/mmbtu</small></div>
+          </dl>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const chartElements = {
+      oil: 'oilChart', condy: 'condyChart', gas: 'gasChart',
+      capex: 'capexChart', opex: 'opexChart', abex: 'abexChart'
+    };
+    const palette = ['#087e79', '#e9a800', '#46a6a0', '#e4773d'];
+    const chartInstances = {};
+    let projectCashFlowChart = null;
+    let revenueSplitChart = null;
+    const defaultMrp = {{ default_mrp|tojson }};
+    let requestNumber = 0;
+    let latestDashboardData = null;
+
+    google.charts.load('current', { packages: ['corechart'] });
+    google.charts.setOnLoadCallback(refreshDashboard);
+    document.getElementById('asOfDate').textContent = new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    }).format(new Date());
+
+    function formatValue(value) {
+      if (value === null || value === undefined || !Number.isFinite(Number(value))) return '-';
+      return Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 });
+    }
+
+    function getSensitivity(name) {
+      const input = document.querySelector(`[data-sensitivity="${name}"]`);
+      const percentage = Number(input.value);
+      return Number.isFinite(percentage) ? percentage / 100 : 1;
+    }
+
+    function drawChart(key, chart) {
+      const sensitivityName = ['oil', 'condy', 'gas'].includes(key) ? 'production' : key;
+      const sensitivity = getSensitivity(sensitivityName);
+      const rows = chart.series[0].values.map((_, index) => [
+        String(window.dashboardYears[index]),
+        ...chart.series.map((series) => (Number(series.values[index]) || 0) * sensitivity)
+      ]);
+      const table = google.visualization.arrayToDataTable([
+        ['Year', ...chart.series.map((series) => series.name)],
+        ...rows
+      ]);
+      const chartMaximum = Math.max(0, ...chart.series.flatMap((series) => series.values.map((value) => Number(value) * sensitivity)));
+      const options = {
+        backgroundColor: 'transparent',
+        colors: palette,
+        legend: { position: chart.series.length > 1 ? 'top' : 'none', maxLines: 2, textStyle: { color: '#56605e', fontSize: 9 } },
+        chartArea: { left: 48, top: chart.series.length > 1 ? 42 : 18, right: 14, bottom: 42, width: '88%', height: '74%' },
+        bar: { groupWidth: '68%' },
+        hAxis: { textStyle: { color: '#59615f', fontSize: 9 }, slantedText: true, slantedTextAngle: 55, baselineColor: '#cbd4d1', gridlines: { color: 'transparent' } },
+        vAxis: { viewWindowMode: 'explicit', viewWindow: { min: 0, max: chartMaximum > 0 ? chartMaximum * 1.12 : 1 }, textStyle: { color: '#59615f', fontSize: 9 }, baselineColor: '#cbd4d1', gridlines: { color: '#e6ebe9' } },
+        tooltip: { textStyle: { fontSize: 11 } }
+      };
+      if (!chartInstances[key]) chartInstances[key] = new google.visualization.ColumnChart(document.getElementById(chartElements[key]));
+      chartInstances[key].draw(table, options);
+    }
+
+    function updateSummary(summary) {
+      document.getElementById('oilKpi').textContent = formatValue(summary.production.oil);
+      document.getElementById('gasKpi').textContent = formatValue(summary.production.gas);
+      document.getElementById('condyKpi').textContent = formatValue(summary.production.condy);
+      document.getElementById('capexKpi').textContent = formatValue(summary.costs.capex);
+      document.getElementById('opexKpi').textContent = formatValue(summary.costs.opex);
+      document.getElementById('abexKpi').textContent = formatValue(summary.costs.abex);
+      document.getElementById('oilTotal').textContent = formatValue(summary.production.oil);
+      document.getElementById('gasTotal').textContent = formatValue(summary.production.gas);
+      document.getElementById('condyTotal').textContent = formatValue(summary.production.condy);
+      document.getElementById('productionTotal').textContent = formatValue(summary.production.total);
+      document.getElementById('capexTotal').textContent = formatValue(summary.costs.capex);
+      document.getElementById('opexTotal').textContent = formatValue(summary.costs.opex);
+      document.getElementById('abexTotal').textContent = formatValue(summary.costs.abex);
+      document.getElementById('udcValue').textContent = formatValue(summary.unit_costs.udc);
+      document.getElementById('upcValue').textContent = formatValue(summary.unit_costs.upc);
+      document.getElementById('uacValue').textContent = formatValue(summary.unit_costs.uac);
+      document.getElementById('utcValue').textContent = formatValue(summary.unit_costs.utc);
+      document.getElementById('utcGasValue').textContent = formatValue(summary.unit_costs.utc_gas);
+    }
+
+    function updateProjectEconomics(economics) {
+      document.getElementById('npv0Value').textContent = formatValue(economics.npv0);
+      document.getElementById('npvWaccValue').textContent = formatValue(economics.npv_at_wacc);
+      document.getElementById('projectIrrValue').textContent =
+        economics.irr === null ? 'N/A' : `${formatValue(economics.irr * 100)}%`;
+      document.getElementById('economicLimitValue').textContent =
+        economics.economic_limit ?? 'N/A';
+      document.getElementById('npvWaccLabel').textContent =
+        `NPV@${formatValue(economics.wacc * 100)}% (${economics.discount_year})`;
+
+      const icon = document.getElementById('viabilityIcon');
+      icon.className = `viability-icon viability-${economics.viability.status}`;
+      icon.setAttribute('aria-label', economics.viability.label);
+      document.getElementById('viabilityText').textContent = economics.viability.label;
+      document.getElementById('viabilityCondition').textContent =
+        economics.viability.condition;
+    }
+
+    function drawEconomicsOverview(data) {
+      const cashFlowChart = data.project_cash_flow_chart;
+      const cashFlowRows = cashFlowChart.years.map((year, index) => [
+        String(year),
+        Number(cashFlowChart.project_ncf[index]) || 0,
+        Number(cashFlowChart.cumulative_project_ncf[index]) || 0
+      ]);
+      const cashFlowTable = google.visualization.arrayToDataTable([
+        ['Year', 'Project NCF', 'Cum Project NCF'],
+        ...cashFlowRows
+      ]);
+      const cashFlowOptions = {
+        backgroundColor: 'transparent',
+        colors: ['#176184', '#f0642b'],
+        chartArea: { left: 46, top: 20, right: 14, bottom: 42, width: '86%', height: '75%' },
+        legend: { position: 'top', alignment: 'start', textStyle: { color: '#555', fontSize: 10 } },
+        seriesType: 'bars',
+        series: { 1: { type: 'line', lineWidth: 2, pointSize: 0 } },
+        hAxis: { textStyle: { color: '#555', fontSize: 9 }, slantedText: true, slantedTextAngle: 50, baselineColor: '#cbd4d1' },
+        vAxis: { textStyle: { color: '#555', fontSize: 9 }, baselineColor: '#cbd4d1', gridlines: { color: '#e6e8e8' } },
+        tooltip: { textStyle: { fontSize: 10 } }
+      };
+      if (!projectCashFlowChart) {
+        projectCashFlowChart = new google.visualization.ComboChart(
+          document.getElementById('projectCashFlowChart')
+        );
+      }
+      projectCashFlowChart.draw(cashFlowTable, cashFlowOptions);
+
+      const split = data.revenue_split || {};
+      const revenueSplitTable = google.visualization.arrayToDataTable([
+        ['Category', 'PITA', 'Export Duty', 'Royalty', 'Project Cost', 'Gross Revenue', 'Project NCF'],
+        ['Gross Revenue', null, null, null, null, (Number(split['Gross Revenue']) || 0) / 1000, null],
+        ['Cost', (Number(split.PITA) || 0) / 1000, (Number(split['Export Duty']) || 0) / 1000, (Number(split.Royalty) || 0) / 1000, (Number(split['Project Cost']) || 0) / 1000, null, null],
+        ['Project NCF', null, null, null, null, null, (Number(split['Project NCF']) || 0) / 1000]
+      ]);
+      const revenueSplitOptions = {
+        backgroundColor: 'transparent',
+        colors: ['#ff9ca5', '#f04444', '#e60012', '#b80000', '#08a8dc', '#ffb900'],
+        chartArea: { left: 44, top: 16, right: 8, bottom: 36, width: '72%', height: '80%' },
+        areaOpacity: 0.95,
+        isStacked: true,
+        legend: 'none',
+        series: { 4: { visibleInLegend: false }, 5: { visibleInLegend: false } },
+        hAxis: {
+          textStyle: { color: '#475569', fontSize: 10 },
+          baselineColor: '#d6dde5',
+          gridlines: { color: 'transparent' }
+        },
+        vAxis: {
+          minValue: 0,
+          format: '#,##0.0',
+          textStyle: { color: '#64748b', fontSize: 9 },
+          baselineColor: '#d6dde5',
+          gridlines: { color: '#e9eef3', count: 4 },
+          minorGridlines: { color: '#f4f6f8' }
+        },
+        bar: { groupWidth: '58%' },
+        focusTarget: 'category',
+        tooltip: { textStyle: { fontSize: 11 } }
+      };
+      if (!revenueSplitChart) {
+        revenueSplitChart = new google.visualization.ColumnChart(
+          document.getElementById('revenueSplitChart')
+        );
+      }
+      revenueSplitChart.draw(revenueSplitTable, revenueSplitOptions);
+
+      document.querySelectorAll('[data-sensitivity-row]').forEach((row) => {
+        const rowData = (data.sensitivity_analysis || {})[row.dataset.sensitivityRow] || {};
+        row.querySelectorAll('[data-sensitivity-case]').forEach((cell) => {
+          const result = rowData[cell.dataset.sensitivityCase];
+          if (cell.dataset.sensitivityMetric === 'irr') {
+            cell.textContent = result && result.irr !== null
+              ? `${formatValue(result.irr * 100)}%`
+              : 'N/A';
+          } else {
+            cell.textContent = result ? formatValue(result.npv0) : '-';
+          }
+        });
+      });
+    }
+
+    function updatePriceSettings(prices) {
+      document.getElementById('priceScenarioLabel').textContent = prices.label;
+      document.getElementById('priceRangeSummary').textContent =
+        `${prices.years[0]}–${prices.years[prices.years.length - 1]} annual prices from Price Input.xlsx`;
+      document.getElementById('gasPriceEquivalentLabel').textContent =
+        `Approx. equivalent in ${prices.reference_year}`;
+      document.getElementById('gasPriceEquivalent').textContent =
+        Number(prices.gas_price_at_reference).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+    }
+
+    function renderYearRail(data) {
+      const rail = document.getElementById('yearRail');
+      rail.replaceChildren();
+      const productionFactor = getSensitivity('production');
+      const capexFactor = getSensitivity('capex');
+      const opexFactor = getSensitivity('opex');
+      const abexFactor = getSensitivity('abex');
+
+      data.years.forEach((year, index) => {
+        const oil = (Number(data.charts.oil.series[0].values[index]) || 0) * productionFactor;
+        const gas = (Number(data.charts.gas.series[0].values[index]) || 0) * productionFactor;
+        const condy = (Number(data.charts.condy.series[0].values[index]) || 0) * productionFactor;
+        const days = new Date(year, 1, 29).getDate() === 29 ? 366 : 365;
+        const gasMcfPerBoe = data.conversions.gas_mcf_per_boe;
+        const production = (oil + condy + gas / gasMcfPerBoe) * days / 1000;
+        const sumSeries = (key) => data.charts[key].series.reduce(
+          (total, series) => total + (Number(series.values[index]) || 0), 0
+        );
+        const capex = sumSeries('capex') * capexFactor;
+        const operatingCost = sumSeries('opex') * opexFactor;
+        const abex = sumSeries('abex') * abexFactor;
+        const card = document.createElement('article');
+        card.className = 'year-card';
+        card.innerHTML = `<h3>${year}</h3>
+          <dl>
+            <div><dt>Production</dt><dd>${formatValue(production)} <small>MMBOE</small></dd></div>
+            <div><dt>Capex</dt><dd>${formatValue(capex)} <small>USD mil</small></dd></div>
+            <div><dt>Opex + Abex</dt><dd>${formatValue(operatingCost + abex)} <small>USD mil</small></dd></div>
+          </dl>`;
+        rail.append(card);
+      });
+    }
+
+    function renderDashboard(data) {
+      window.dashboardYears = data.years;
+      for (const [key, chart] of Object.entries(data.charts)) drawChart(key, chart);
+      renderYearRail(data);
+
+      const productionFactor = getSensitivity('production');
+      const costs = {
+        capex: data.summary.costs.capex * getSensitivity('capex'),
+        exploration: data.summary.costs.exploration * getSensitivity('capex'),
+        opex: data.summary.costs.opex * getSensitivity('opex'),
+        abex: data.summary.costs.abex * getSensitivity('abex')
+      };
+      const production = {
+        oil: data.summary.production.oil * productionFactor,
+        gas: data.summary.production.gas * productionFactor,
+        condy: data.summary.production.condy * productionFactor,
+        total: data.summary.production.total * productionFactor
+      };
+      const totalCost = costs.capex + costs.opex + costs.abex;
+      updateSummary({
+        production,
+        costs,
+        unit_costs: {
+          ufc: production.total ? costs.exploration / production.total : null,
+          udc: production.total ? costs.capex / production.total : null,
+          upc: production.total ? costs.opex / production.total : null,
+          uac: production.total ? costs.abex / production.total : null,
+          utc: production.total ? (totalCost + costs.exploration) / production.total : null,
+          utc_gas: production.gas ? totalCost / production.gas : null
+        }
+      });
+      updateProjectEconomics(data.project_economics);
+      updatePriceSettings(data.prices);
+      drawEconomicsOverview(data);
+    }
+
+    async function refreshDashboard() {
+      const currentRequest = ++requestNumber;
+      const startYear = Number(document.getElementById('startYear').value);
+      const endYear = Number(document.getElementById('endYear').value);
+      const status = document.getElementById('dataStatus');
+      status.textContent = 'Updating';
+      status.classList.remove('status-error');
+      try {
+        const query = new URLSearchParams({
+          start_year: startYear,
+          end_year: endYear,
+          profile_type: document.getElementById('profileType').value,
+          price_scenario: document.getElementById('priceScenario').value,
+          mrp: document.getElementById('mrpInput').value,
+          custom_liquid_price: document.getElementById('customLiquidPrice').value,
+          custom_gas_price: document.getElementById('customGasPrice').value,
+          custom_reference_year: document.getElementById('customReferenceYear').value,
+          custom_escalation_rate: document.getElementById('customEscalationRate').value,
+          production_sensitivity: document.querySelector('[data-sensitivity="production"]').value,
+          capex_sensitivity: document.querySelector('[data-sensitivity="capex"]').value,
+          opex_sensitivity: document.querySelector('[data-sensitivity="opex"]').value,
+          abex_sensitivity: document.querySelector('[data-sensitivity="abex"]').value
+        });
+        const response = await fetch(`/dashboard-data?${query}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Dashboard data request failed');
+        if (currentRequest !== requestNumber) return;
+        latestDashboardData = data;
+        renderDashboard(data);
+        status.textContent = 'Live data';
+      } catch (error) {
+        status.textContent = error.message || 'Data unavailable';
+        status.classList.add('status-error');
+      }
+    }
+
+    function updateProfilerLink() {
+      const url = new URL(document.getElementById('profilerLink').href);
+      const profileType = document.getElementById('profileType').value;
+      url.searchParams.set('profile_type', profileType);
+      document.getElementById('profilerLink').href = url;
+      document.getElementById('cashFlowInputLink').href = url;
+      const pageUrl = new URL(window.location);
+      pageUrl.searchParams.set('profile_type', profileType);
+      history.replaceState({}, '', pageUrl);
+    }
+
+    document.querySelectorAll('.sensitivity-input').forEach((input) => {
+      input.addEventListener('input', () => {
+        if (latestDashboardData) renderDashboard(latestDashboardData);
+      });
+      input.addEventListener('change', refreshDashboard);
+    });
+
+    for (const id of [
+      'profileType', 'priceScenario', 'mrpInput',
+      'customLiquidPrice', 'customGasPrice', 'customReferenceYear',
+      'customEscalationRate'
+    ]) {
+      document.getElementById(id).addEventListener('change', () => {
+        updateProfilerLink();
+        refreshDashboard();
+      });
+    }
+
+    function adjustMrp(stepCount) {
+      const input = document.getElementById('mrpInput');
+      const current = Number(input.value);
+      if (!Number.isFinite(current)) {
+        input.value = defaultMrp.toFixed(2);
+        refreshDashboard();
+        return;
+      }
+      const next = Math.max(0, Math.min(100, Math.round(current * 20) / 20 + stepCount * 0.05));
+      input.value = next.toFixed(2);
+      refreshDashboard();
+    }
+    document.getElementById('mrpDecrease').addEventListener('click', () => adjustMrp(-1));
+    document.getElementById('mrpIncrease').addEventListener('click', () => adjustMrp(1));
+
+    document.getElementById('resetScenarioSettings').addEventListener('click', () => {
+      document.getElementById('priceScenario').value = 'base';
+      document.getElementById('mrpInput').value = defaultMrp;
+      document.getElementById('customLiquidPrice').value =
+        '{{ default_custom_liquid_price }}';
+      document.getElementById('customGasPrice').value =
+        '{{ default_custom_gas_price }}';
+      document.getElementById('customReferenceYear').value =
+        '{{ default_custom_reference_year }}';
+      document.getElementById('customEscalationRate').value =
+        '{{ default_custom_escalation_rate }}';
+      document.querySelectorAll('.sensitivity-input').forEach((input) => {
+        input.value = '100';
+      });
+      refreshDashboard();
+    });
+
+    document.getElementById('recalculateSensitivity').addEventListener('click', refreshDashboard);
+
+    document.getElementById('yearRailPrev').addEventListener('click', () => {
+      document.getElementById('yearRail').scrollBy({ left: -420, behavior: 'smooth' });
+    });
+    document.getElementById('yearRailNext').addEventListener('click', () => {
+      document.getElementById('yearRail').scrollBy({ left: 420, behavior: 'smooth' });
+    });
+
+    for (const id of ['startYear', 'endYear']) {
+      document.getElementById(id).addEventListener('change', () => {
+        const start = document.getElementById('startYear');
+        const end = document.getElementById('endYear');
+        if (Number(start.value) > Number(end.value)) {
+          if (id === 'startYear') end.value = start.value;
+          else start.value = end.value;
+        }
+        const url = new URL(window.location);
+        url.searchParams.set('start_year', start.value);
+        url.searchParams.set('end_year', end.value);
+        history.replaceState({}, '', url);
+        refreshDashboard();
+      });
+    }
+    window.addEventListener('resize', () => {
+      for (const key of Object.keys(chartInstances)) google.visualization.events.trigger(chartInstances[key], 'resize');
+      refreshDashboard();
+    });
+    window.addEventListener('focus', refreshDashboard);
+    window.setInterval(refreshDashboard, 10000);
+  </script>
+</body>
+</html>

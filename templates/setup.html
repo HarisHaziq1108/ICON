@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="page-shell setup-page">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">iCON - Integrated Resource Cost and Economics Toolkit</p>
+        <h1>Project overview</h1>
+      </div>
+      <a class="nav-link" href="{{ url_for('economics.dashboard') }}">iCON Economics</a>
+    </header>
+
+    <section class="setup-panel">
+      <div class="panel-heading">
+        <p class="eyebrow">START A PROFILE</p>
+        <h2>Choose the analysis period</h2>
+        <p>Select a year range to open the technical input grid.</p>
+      </div>
+      <form class="setup-form" method="POST" action="{{ url_for('profiler.index') }}">
+      <div class="field-row">
+        <div class="year-field">
+          <label for="start_year">From year</label>
+          <select id="start_year" name="start_year">
+            {% for year in range(min_year, max_year + 1) %}
+              <option value="{{ year }}" {{ 'selected' if year == 2026 else '' }}>{{ year }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="year-field">
+          <label for="end_year">To year</label>
+          <select id="end_year" name="end_year">
+            {% for year in range(min_year, max_year + 1) %}
+              <option value="{{ year }}" {{ 'selected' if year == 2026 else '' }}>{{ year }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+        <div class="setup-actions">
+          <button class="primary-btn" type="submit">Open profiler</button>
+          <a class="text-link" href="{{ url_for('economics.dashboard') }}">Open economics dashboard</a>
+        </div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>
