@@ -2,11 +2,7 @@
 
 
 from flask import Blueprint, render_template
-from .services import (
-    MAX_YEAR,
-    MIN_YEAR,
-    get_years_for_range,
-)
+from .services import MAX_YEAR, MIN_YEAR
 
 home_blueprint = Blueprint("home", __name__)
 

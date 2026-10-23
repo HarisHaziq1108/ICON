@@ -62,6 +62,7 @@ body {
 .setup-page { padding-top: 8px; }
 .setup-page .page-header { max-width: 980px; margin-bottom: 32px; }
 .setup-panel { width: min(680px, 100%); margin: 0 auto; padding: 24px; border: 1px solid #e1e7ee; border-radius: 10px; background: #fff; box-shadow: 0 5px 18px rgba(39, 53, 70, .06); }
+.import-panel { margin-top: 18px; }
 .panel-heading { margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid #e6ebf0; }
 .panel-heading h2 { margin: 0; color: #303a46; font-family: 'Manrope', sans-serif; font-size: 17px; }
 .panel-heading > p:last-child { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
@@ -69,13 +70,20 @@ body {
 .field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .year-field { display: grid; gap: 7px; color: #5e6976; font-size: 11px; font-weight: 600; }
 .year-field select { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid #dbe2e9; border-radius: 5px; background: #fff; color: #34404d; font: inherit; font-size: 13px; }
+.year-field input[type="file"] { width: 100%; padding: 9px 10px; border: 1px solid #dbe2e9; border-radius: 5px; background: #fff; color: #34404d; font: inherit; font-size: 12px; }
 .setup-actions { display: flex; align-items: center; gap: 16px; }
 .primary-btn { min-height: 40px; padding: 9px 18px; }
 .text-link { color: var(--purple); font-size: 12px; font-weight: 600; text-decoration: none; }
 .text-link:hover { text-decoration: underline; }
 
 .profiler-header { align-items: center; margin-bottom: 14px; }
+.profiler-project-name { display: grid; gap: 6px; max-width: 420px; margin: 0 0 12px; color: #5e6976; font-size: 12px; font-weight: 600; }
+.profiler-project-name input { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid #dbe2e9; border-radius: 5px; background: #fff; color: #34404d; font: inherit; font-size: 13px; }
+.profiler-project-name input:focus { outline: 2px solid rgba(117, 64, 154, .2); border-color: #9a72b2; }
+.profiler-project-name input:disabled { background: #f1f3f5; color: #89939d; cursor: not-allowed; }
+.profiler-project-name small { color: var(--muted); font-size: 10px; font-weight: 400; }
 .workbook-error { margin: 0 0 12px; padding: 12px 14px; border: 1px solid #e4b3b3; border-radius: 7px; background: #fff1f0; color: #8d2929; font-size: 13px; line-height: 1.5; }
+.import-notice { margin: 0 0 12px; padding: 10px 14px; border: 1px solid #b7ded5; border-radius: 7px; background: #effaf6; color: #246b58; font-size: 13px; line-height: 1.5; }
 .table-wrapper { overflow: auto; max-width: 100%; max-height: calc(100vh - 190px); border: 1px solid #dfe5ec; border-radius: 9px; background: #fff; box-shadow: 0 3px 12px rgba(39, 53, 70, .045); }
 table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
 th, td { border-right: 1px solid #e6ebf0; border-bottom: 1px solid #e6ebf0; padding: 6px 8px; text-align: center; font-size: 12px; white-space: nowrap; }

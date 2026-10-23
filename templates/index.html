@@ -22,11 +22,30 @@
   {% if workbook_error %}
     <div class="workbook-error" role="alert">{{ workbook_error }}</div>
   {% endif %}
+  {% if imported %}
+    <div class="import-notice" role="status">
+      Excel data loaded for {{ profile_type }} input. Keep this page open while it autosaves.
+    </div>
+  {% endif %}
 
   <form id="profilerForm">
     <input type="hidden" name="start_year" value="{{ start_year }}">
     <input type="hidden" name="end_year" value="{{ end_year }}">
     <input type="hidden" name="profile_type" value="{{ profile_type }}">
+    <div class="profiler-project-name">
+      <label for="project_name">Field / project name <span aria-hidden="true">*</span></label>
+      <input
+        id="project_name"
+        type="text"
+        name="project_name"
+        maxlength="120"
+        required
+        value="{{ project_name }}"
+        aria-describedby="project-name-help"
+        {{ 'disabled' if workbook_error else '' }}
+      >
+      <small id="project-name-help">Required - used to label the profiler database.</small>
+    </div>
     <div class="table-wrapper">
       <table>
         <thead>
@@ -95,6 +114,8 @@
     const statusEl = document.getElementById('saveStatus');
     const resetBtn = document.getElementById('resetBtn');
     const workbookIsDamaged = {{ 'true' if workbook_error else 'false' }};
+    const hasImportedData = {{ 'true' if imported else 'false' }};
+    const projectNameInput = document.getElementById('project_name');
 
     function setStatus(text, isError) {
       statusEl.textContent = text;
@@ -164,16 +185,34 @@
     }
 
     const debouncedAutosave = debounce(autosave, 600);
+    const debouncedNamedAutosave = debounce(() => {
+      if (projectNameInput.value.trim()) {
+        autosave();
+      }
+    }, 600);
 
-    if (!workbookIsDamaged) {
+    if (!workbookIsDamaged && !hasImportedData) {
       fetch('/profiler-state', { method: 'POST', body: new FormData(form) }).catch(() => {});
     }
 
     form.addEventListener('input', (e) => {
-      if (!workbookIsDamaged && e.target.matches('input[type="number"]')) {
-        debouncedAutosave();
+      if (workbookIsDamaged) return;
+      if (e.target === projectNameInput) {
+        if (projectNameInput.value.trim()) {
+          debouncedNamedAutosave();
+        } else {
+          setStatus('Enter a field/project name to enable autosave.', true);
+        }
+      } else if (e.target.matches('input[type="number"]')) {
+        if (projectNameInput.value.trim()) {
+          debouncedAutosave();
+        } else {
+          setStatus('Enter a field/project name before entering profiler data.', true);
+        }
       }
     });
+
+    form.addEventListener('submit', (event) => event.preventDefault());
 
     resetBtn.addEventListener('click', async () => {
       const confirmation = workbookIsDamaged
@@ -191,6 +230,22 @@
         setStatus(err.message || 'Reset failed — check the server', true);
       }
     });
+
+    if (hasImportedData) {
+      if (workbookIsDamaged) {
+        setStatus('Import is displayed, but saving is disabled until the damaged workbook is backed up.', true);
+      } else if (!projectNameInput.value.trim()) {
+        setStatus('Enter a field/project name to save the imported data.', true);
+      } else {
+        autosave();
+      }
+    }
+
+    if (projectNameInput.value.trim() && !workbookIsDamaged && !hasImportedData) {
+      autosave();
+    } else if (!projectNameInput.value.trim() && !workbookIsDamaged) {
+      setStatus('Enter a field/project name to enable autosave.', true);
+    }
   </script>
 
 </body>

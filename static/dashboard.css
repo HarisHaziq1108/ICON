@@ -291,12 +291,13 @@ h1 { margin-bottom: 0; font-size: 24px; line-height: 1.2; }
 .viability-result { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; }
 .viability-result strong { font-size: 12px; }
 .viability-condition { grid-column: 1 / -1; white-space: normal !important; }
-.viability-icon { display: inline-grid; place-items: center; width: 32px; height: 32px; flex: 0 0 auto; border: 1px solid currentColor; border-radius: 7px; }
-.viability-icon svg { width: 24px; height: 24px; fill: currentColor; stroke: #26313e; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
-.viability-not-viable { color: #d93025; background: #fde9e7; }
-.viability-viable { color: #e6a700; background: #fff5d1; }
-.viability-strongly-viable { color: #0b9b41; background: #e5f5eb; }
-.viability-unknown { color: #7d8792; background: #eef1f4; }
+.project-economics.viability-not-viable { border-color: #e9b8b4; background: #fff0ee; }
+.project-economics.viability-viable { border-color: #ead48d; background: #fff8df; }
+.project-economics.viability-strongly-viable { border-color: #a9d9b8; background: #edf9f0; }
+.project-economics.viability-unknown { border-color: #e2e7ed; background: #fff; }
+.viability-not-viable .viability-result strong { color: #a72e27; }
+.viability-viable .viability-result strong { color: #795600; }
+.viability-strongly-viable .viability-result strong { color: #18733b; }
 .economics-formula { margin-top: 8px; color: #687482; font-size: 10px; }
 .economics-formula summary { width: fit-content; cursor: pointer; font-weight: 600; }
 .economics-formula p { margin: 5px 0 0; line-height: 1.5; }
@@ -445,7 +446,7 @@ h1 { margin-bottom: 0; font-size: 24px; line-height: 1.2; }
 
 .economics-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr) minmax(0, 1.12fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 0 0 14px;
 }
@@ -517,22 +518,123 @@ h1 { margin-bottom: 0; font-size: 24px; line-height: 1.2; }
 .sensitivity-irr-row td { font-weight: 700; }
 .sensitivity-npv-row td { color: #06447c; }
 
+/* Compact overview with scenario controls in a desktop sidebar. */
+.technical-summary {
+  margin-bottom: 10px;
+  padding: 10px 13px;
+}
+.summary-title { margin-bottom: 7px; }
+.summary-title h2 { font-size: 15px; }
+.summary-title p { margin-top: 2px; font-size: 10px; }
+.summary-columns { gap: 9px; }
+.summary-group h3 { margin-bottom: 3px; padding: 5px 8px; }
+.summary-group dl { gap: 0; }
+.summary-group dl > div { min-height: 23px; }
+
+.dashboard-body {
+  display: grid;
+  grid-template-columns: minmax(230px, 265px) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+.scenario-panel {
+  position: sticky;
+  top: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 0;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  margin: 0;
+  padding: 8px 13px;
+  border-radius: 9px;
+}
+.dashboard-content { min-width: 0; }
+.scenario-controls,
+.price-sensitivity-controls,
+.custom-price-settings,
+.technical-sensitivity-controls {
+  padding: 10px 0;
+  border: 0;
+}
+.scenario-controls,
+.price-sensitivity-controls,
+.technical-sensitivity-controls {
+  border-bottom: 1px solid #e8ebef;
+}
+.scenario-controls { gap: 6px; }
+.scenario-number-control { font-size: 10px; }
+.price-sensitivity-controls { gap: 7px; }
+.mrp-adjustment input { width: 100%; }
+.custom-price-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.custom-price-settings .scenario-number-control { gap: 4px; }
+.technical-sensitivity-controls { gap: 7px; }
+.technical-sensitivity-controls .sensitivity-controls {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+}
+.technical-sensitivity-controls .sensitivity-control { padding: 5px 9px; }
+.metric-strip { gap: 8px; margin-bottom: 9px; }
+.metric-card { min-height: 68px; padding: 10px 12px 9px 14px; }
+.metric-card p { margin-bottom: 6px; }
+.project-economics { margin-bottom: 9px; padding: 10px 12px; }
+.year-overview,
+.analysis-section { margin-bottom: 10px; }
+.chart-grid { gap: 8px; }
+.chart-panel { min-height: 215px; }
+.chart { min-height: 170px; }
+.economics-overview { gap: 8px; margin-bottom: 0; }
+.overview-card { min-height: 205px; padding: 8px 9px 5px; }
+.overview-chart,
+.revenue-chart-layout { height: 170px; min-height: 170px; }
+
 @media (max-width: 1100px) {
-  .scenario-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .price-sensitivity-controls { border-left: 0; }
-  .technical-sensitivity-controls { padding-left: 0; border-left: 0; }
+  .dashboard-body { grid-template-columns: minmax(215px, 245px) minmax(0, 1fr); }
   .economics-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sensitivity-card { grid-column: 1 / -1; }
 }
 
+@media (max-width: 900px) {
+  .dashboard-body { grid-template-columns: 1fr; }
+  .scenario-panel {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: none;
+    overflow: visible;
+  }
+  .scenario-controls,
+  .price-sensitivity-controls,
+  .custom-price-settings,
+  .technical-sensitivity-controls {
+    padding: 9px;
+    border: 0;
+  }
+  .scenario-controls,
+  .price-sensitivity-controls { border-bottom: 1px solid #e8ebef; }
+  .price-sensitivity-controls { grid-template-columns: 1fr; }
+  .technical-sensitivity-controls .sensitivity-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
-  .scenario-panel { grid-template-columns: 1fr; padding: 13px; }
-  .custom-price-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .price-sensitivity-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 0; }
+  .scenario-panel { grid-template-columns: 1fr; padding: 8px 12px; }
+  .scenario-controls,
+  .price-sensitivity-controls,
+  .custom-price-settings,
+  .technical-sensitivity-controls { padding: 9px 0; }
+  .scenario-controls,
+  .price-sensitivity-controls,
+  .custom-price-settings { border-bottom: 1px solid #e8ebef; }
+  .technical-sensitivity-controls .sensitivity-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .economics-overview { grid-template-columns: 1fr; }
   .sensitivity-card { grid-column: auto; }
 }
 
 @media (max-width: 390px) {
-  .price-sensitivity-controls, .custom-price-settings { grid-template-columns: 1fr; }
+  .technical-sensitivity-controls .sensitivity-controls,
+  .custom-price-settings { grid-template-columns: 1fr; }
 }

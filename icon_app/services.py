@@ -1,14 +1,21 @@
 """Shared profiler and economics calculations and workbook access."""
 
 import calendar
+import hashlib
 import json
 import math
 import os
+import re
+import tempfile
+import threading
+import unicodedata
 import zipfile
 from datetime import datetime
 from functools import lru_cache
 
 import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -40,6 +47,7 @@ MIN_YEAR = min(YEARS)
 MAX_YEAR = max(YEARS)
 
 PROFILE_TYPES = {"notional", "complete"}
+PROJECT_INFO_SHEET = "Project Information"
 
 PRICE_SCENARIOS = {"base", "low", "high", "custom"}
 
@@ -117,6 +125,11 @@ PROFILE_EXCEL_PATHS = {
     "complete": EXCEL_PATH,
     "notional": NOTIONAL_EXCEL_PATH,
 }
+_PROFILE_SAVE_LOCK = threading.Lock()
+
+NAMED_DATABASE_PATTERN = re.compile(
+    r"^database_[a-z0-9_-]{1,64}_(?:complete|notional)_[0-9a-f]{10}\.xlsx$"
+)
 
 PROFILER_DATA = {
     profile_type: {key: {} for key, _ in VARIABLES}
@@ -129,6 +142,59 @@ def get_profile_type(value):
     if profile_type not in PROFILE_TYPES:
         raise ValueError("Input selection must be Notional or Complete.")
     return profile_type
+
+
+def get_profile_workbook_path(profile_type="complete"):
+    """Resolve the current workbook, including safely named profile files."""
+    profile_type = get_profile_type(profile_type)
+    legacy_path = PROFILE_EXCEL_PATHS[profile_type]
+    directory = os.path.dirname(legacy_path)
+    candidates = [legacy_path] if os.path.isfile(legacy_path) else []
+    try:
+        entries = os.scandir(directory)
+    except OSError:
+        if candidates:
+            return candidates[0]
+        raise
+
+    with entries:
+        for entry in entries:
+            if not entry.is_file() or not NAMED_DATABASE_PATTERN.fullmatch(entry.name):
+                continue
+            try:
+                workbook = load_workbook(entry.path, read_only=True, data_only=True)
+                try:
+                    if PROJECT_INFO_SHEET not in workbook.sheetnames:
+                        continue
+                    if str(workbook[PROJECT_INFO_SHEET]["B2"].value or "").strip().lower() == profile_type:
+                        candidates.append(entry.path)
+                finally:
+                    workbook.close()
+            except (
+                OSError,
+                ValueError,
+                InvalidFileException,
+                zipfile.BadZipFile,
+            ) as error:
+                raise OSError(
+                    f"Could not inspect saved profiler workbook {entry.name}: {error}"
+                ) from error
+
+    if not candidates:
+        return legacy_path
+    return max(candidates, key=os.path.getmtime)
+
+
+def _named_database_path(project_name, profile_type, directory):
+    normalized_name = unicodedata.normalize("NFKD", project_name)
+    ascii_name = normalized_name.encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "_", ascii_name).strip("_-").lower()
+    slug = slug[:64].rstrip("_-") or "project"
+    digest = hashlib.sha256(
+        f"{profile_type}\0{project_name}".encode("utf-8")
+    ).hexdigest()[:10]
+    filename = f"database_{slug}_{profile_type}_{digest}.xlsx"
+    return os.path.join(directory, filename)
 
 def load_price_scenarios():
     """Load the annual price vectors extracted read-only from Price Input.xlsx."""
@@ -222,7 +288,7 @@ def resolve_prices(
 
 def load_existing_data(years=None, profile_type="complete"):
     """Read the selected profile workbook so the form can be pre-filled."""
-    path = PROFILE_EXCEL_PATHS[get_profile_type(profile_type)]
+    path = get_profile_workbook_path(profile_type)
     if not os.path.exists(path):
         return {}
     # Data sheet has 2 header rows: leap-check row + year row;
@@ -252,6 +318,20 @@ def load_existing_data(years=None, profile_type="complete"):
             value = 0 if pd.isna(val) else val
             data[key][int(y)] = value
     return data
+
+
+def load_project_name(profile_type="complete"):
+    """Read the saved project label from the selected profile workbook."""
+    path = get_profile_workbook_path(profile_type)
+    if not os.path.exists(path):
+        return ""
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        if PROJECT_INFO_SHEET not in workbook.sheetnames:
+            return ""
+        return str(workbook[PROJECT_INFO_SHEET]["B1"].value or "").strip()
+    finally:
+        workbook.close()
 
 def leap_indicator(year):
     """Return 0 for leap years, or years since the most recent leap year."""
@@ -765,11 +845,30 @@ def build_total_display(rows, years, existing, calc_display):
     return totals
 
 def save_form_data(form, years=None, profile_type="complete"):
+    """Serialize profile saves so workbook discovery and renames cannot race."""
+    with _PROFILE_SAVE_LOCK:
+        return _save_form_data(form, years=years, profile_type=profile_type)
+
+
+def _save_form_data(form, years=None, profile_type="complete"):
     """
     Save the current profile data and return the raw input DataFrame.
     """
     profile_type = get_profile_type(profile_type)
-    path = PROFILE_EXCEL_PATHS[profile_type]
+    project_name = str(form.get("project_name", "") or "").strip()
+    if not project_name:
+        raise ValueError("Project name is required.")
+    if len(project_name) > 120:
+        raise ValueError("Project name must be 120 characters or fewer.")
+    source_path = get_profile_workbook_path(profile_type)
+    output_path = _named_database_path(
+        project_name, profile_type, os.path.dirname(source_path)
+    )
+    if os.path.exists(output_path) and os.path.abspath(output_path) != os.path.abspath(source_path):
+        raise ValueError(
+            "A database workbook with the requested safe filename already exists. "
+            "Rename or move that file before saving this project."
+        )
     selected_years = years or YEARS
     selected_year_set = set(selected_years)
     saved_data = load_existing_data(years=YEARS, profile_type=profile_type)
@@ -835,42 +934,76 @@ def save_form_data(form, years=None, profile_type="complete"):
         names=["Leap Check (0=leap year; otherwise years since)", "Variable"],
     )
 
-    with pd.ExcelWriter(path, engine="openpyxl") as writer:
-        df_for_excel.to_excel(writer, sheet_name="Data")
-        results.round(1).to_excel(writer, sheet_name="Calculations")
-        for sheet_name, sheet_df in economic_sheets.items():
-            sheet_df.round(1).to_excel(writer, sheet_name=sheet_name, index=False)
+    temporary_descriptor, temporary_path = tempfile.mkstemp(
+        prefix=".icon-profiler-", suffix=".xlsx", dir=os.path.dirname(output_path)
+    )
+    os.close(temporary_descriptor)
+    try:
+        with pd.ExcelWriter(temporary_path, engine="openpyxl") as writer:
+            df_for_excel.to_excel(writer, sheet_name="Data")
+            results.round(1).to_excel(writer, sheet_name="Calculations")
+            for sheet_name, sheet_df in economic_sheets.items():
+                sheet_df.round(1).to_excel(writer, sheet_name=sheet_name, index=False)
+            project_info = writer.book.create_sheet(PROJECT_INFO_SHEET)
+            project_info["A1"] = "Project Name"
+            project_info["B1"] = project_name
+            project_info["A2"] = "Profile Type"
+            project_info["B2"] = profile_type
+            writer.book.properties.title = project_name
 
-        data_start_rows = {"Data": 4, "Calculations": 2}
-        for worksheet in writer.book.worksheets:
-            start_row = data_start_rows.get(worksheet.title, 2)
-            for row in worksheet.iter_rows(min_row=start_row):
-                for cell in row:
-                    if isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool):
-                        cell.number_format = (
-                            "#,##0" if worksheet.title == "Revenue Flow" else "0.0"
-                        )
-            if worksheet.title == "Revenue Flow":
-                for column, width in {
-                    "A": 22,
-                    "B": 16,
-                    "C": 12,
-                    "D": 15,
-                    "E": 10,
-                }.items():
-                    worksheet.column_dimensions[column].width = width
-            elif worksheet.title == "Project Net Cash Flow":
-                worksheet.column_dimensions["A"].width = 12
-                worksheet.column_dimensions["B"].width = 24
-                worksheet.column_dimensions["C"].width = 30
-                for cell in worksheet["A"][1:]:
-                    cell.number_format = "0"
-        data_sheet = writer.book["Data"]
-        for label, key in input_keys.items():
-            if key == "Condy_Sales":
-                for row_label in (label, "Condy Sales (MMSTB)"):
-                    row = 4 + combined_df.index.get_loc(row_label)
-                    data_sheet.cell(row=row, column=2).number_format = "0.00"
+            data_start_rows = {"Data": 4, "Calculations": 2}
+            for worksheet in writer.book.worksheets:
+                start_row = data_start_rows.get(worksheet.title, 2)
+                for row in worksheet.iter_rows(min_row=start_row):
+                    for cell in row:
+                        if isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool):
+                            cell.number_format = (
+                                "#,##0" if worksheet.title == "Revenue Flow" else "0.0"
+                            )
+                if worksheet.title == "Revenue Flow":
+                    for column, width in {
+                        "A": 22,
+                        "B": 16,
+                        "C": 12,
+                        "D": 15,
+                        "E": 10,
+                    }.items():
+                        worksheet.column_dimensions[column].width = width
+                elif worksheet.title == "Project Net Cash Flow":
+                    worksheet.column_dimensions["A"].width = 12
+                    worksheet.column_dimensions["B"].width = 24
+                    worksheet.column_dimensions["C"].width = 30
+                    for cell in worksheet["A"][1:]:
+                        cell.number_format = "0"
+            data_sheet = writer.book["Data"]
+            for label, key in input_keys.items():
+                if key == "Condy_Sales":
+                    for row_label in (label, "Condy Sales (MMSTB)"):
+                        row = 4 + combined_df.index.get_loc(row_label)
+                        data_sheet.cell(row=row, column=2).number_format = "0.00"
+
+        os.replace(temporary_path, output_path)
+        if os.path.abspath(source_path) != os.path.abspath(output_path):
+            try:
+                os.remove(source_path)
+            except FileNotFoundError:
+                pass
+            except OSError as error:
+                try:
+                    os.remove(output_path)
+                except OSError as rollback_error:
+                    raise OSError(
+                        "The project-named workbook was created, but the previous "
+                        "workbook could not be removed and the new file could not "
+                        "be rolled back."
+                    ) from rollback_error
+                raise OSError(
+                    "Could not rename the previous profiler workbook. Close it in "
+                    "Excel or wait for file syncing to finish, then try again."
+                ) from error
+    finally:
+        if os.path.exists(temporary_path):
+            os.remove(temporary_path)
 
     return df, results
 
@@ -1016,9 +1149,10 @@ def economic_data(raw_data, calculated_data):
 def econimic_data(raw_data=None, calculated_data=None):
     """Backward-compatible spelling for callers using the original name."""
     if raw_data is None or calculated_data is None:
-        if not os.path.exists(PROFILE_EXCEL_PATHS["complete"]):
+        path = get_profile_workbook_path("complete")
+        if not os.path.exists(path):
             return {}
-        return pd.ExcelFile(PROFILE_EXCEL_PATHS["complete"]).sheet_names
+        return pd.ExcelFile(path).sheet_names
     return economic_data(raw_data, calculated_data)
 
 def build_dashboard_data(
@@ -1202,9 +1336,7 @@ def build_dashboard_data(
         cash_flow_by_year = dict(zip(fiscal_years, fiscal_cash_flows))
         project_cash_flows = [cash_flow_by_year[year] for year in years]
 
-    cash_flow_chart_years = list(
-        range(MIN_YEAR, min(MAX_YEAR, years[-1] + 2) + 1)
-    )
+    cash_flow_chart_years = list(years)
     cash_flow_chart_values = [
         cash_flow_by_year[year] for year in cash_flow_chart_years
     ]

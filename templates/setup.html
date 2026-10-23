@@ -22,6 +22,9 @@
         <h2>Choose the analysis period</h2>
         <p>Select a year range to open the technical input grid.</p>
       </div>
+      {% if import_error %}
+        <div class="workbook-error" role="alert">{{ import_error }}</div>
+      {% endif %}
       <form class="setup-form" method="POST" action="{{ url_for('profiler.index') }}">
       <div class="field-row">
         <div class="year-field">
@@ -44,6 +47,27 @@
         <div class="setup-actions">
           <button class="primary-btn" type="submit">Open profiler</button>
           <a class="text-link" href="{{ url_for('economics.dashboard') }}">Open economics dashboard</a>
+        </div>
+      </form>
+    </section>
+
+    <section class="setup-panel import-panel">
+      <div class="panel-heading">
+        <p class="eyebrow">IMPORT A PROFILE</p>
+        <h2>Upload a completed Excel template</h2>
+        <p>
+          The profiler range is detected from the first and last years containing
+          data. Use the generated template and keep the variable labels unchanged.
+        </p>
+      </div>
+      <form class="setup-form" method="POST" action="{{ url_for('profiler.import_profiler') }}" enctype="multipart/form-data">
+        <div class="year-field">
+          <label for="workbook">Profiler workbook (.xlsx)</label>
+          <input id="workbook" name="workbook" type="file" accept=".xlsx" required>
+        </div>
+        <div class="setup-actions">
+          <button class="primary-btn" type="submit">Upload and open profiler</button>
+          <a class="text-link" href="{{ url_for('profiler.download_profiler_template') }}">Download profiler template</a>
         </div>
       </form>
     </section>

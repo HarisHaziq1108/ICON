@@ -39,7 +39,27 @@
       </div>
     </header>
 
-    <section class="scenario-panel" aria-label="Price and technical sensitivities">
+    <section class="metric-strip" aria-label="Range overview">
+      <article class="metric-card metric-oil"><p>Oil production</p><div><strong id="oilKpi">-</strong><span>MMSTB</span></div></article>
+      <article class="metric-card metric-gas"><p>Gas production</p><div><strong id="gasKpi">-</strong><span>BSCF</span></div></article>
+      <article class="metric-card metric-condy"><p>Condy production</p><div><strong id="condyKpi">-</strong><span>MMSTB</span></div></article>
+      <article class="metric-card metric-capex"><p>Total capex</p><div><strong id="capexKpi">-</strong><span>USD mil</span></div></article>
+      <article class="metric-card metric-opex"><p>Total opex</p><div><strong id="opexKpi">-</strong><span>USD mil</span></div></article>
+      <article class="metric-card metric-abex"><p>Total abex</p><div><strong id="abexKpi">-</strong><span>USD mil</span></div></article>
+    </section>
+
+    <div class="dashboard-body">
+      <aside class="scenario-panel" aria-label="Price and technical sensitivities">
+      <section class="summary-group unit-cost-group">
+        <h3>Unit costs</h3>
+        <dl>
+          <div><dt>UDC</dt><dd id="udcValue">-</dd><small>USD/boe</small></div>
+          <div><dt>UPC</dt><dd id="upcValue">-</dd><small>USD/boe</small></div>
+          <div><dt>UAC</dt><dd id="uacValue">-</dd><small>USD/boe</small></div>
+          <div><dt>UTC</dt><dd id="utcValue">-</dd><small>USD/boe</small></div>
+          <div><dt>UTC (Gas only)</dt><dd id="utcGasValue">-</dd><small>USD/mmbtu</small></div>
+        </dl>
+      </section>
       <div class="scenario-controls">
         <label class="scenario-select-control">
           <span>Price selection</span>
@@ -109,18 +129,10 @@
           <label class="sensitivity-control"><span>Abex</span><span class="sensitivity-input-wrap"><input class="sensitivity-input" data-sensitivity="abex" type="number" min="0" max="1000" step="5" value="100" aria-label="Abex sensitivity percentage"><b>%</b></span></label>
         </div>
       </div>
-    </section>
+      </aside>
 
-    <section class="metric-strip" aria-label="Range overview">
-      <article class="metric-card metric-oil"><p>Oil production</p><div><strong id="oilKpi">-</strong><span>MMSTB</span></div></article>
-      <article class="metric-card metric-gas"><p>Gas production</p><div><strong id="gasKpi">-</strong><span>BSCF</span></div></article>
-      <article class="metric-card metric-condy"><p>Condy production</p><div><strong id="condyKpi">-</strong><span>MMSTB</span></div></article>
-      <article class="metric-card metric-capex"><p>Total capex</p><div><strong id="capexKpi">-</strong><span>USD mil</span></div></article>
-      <article class="metric-card metric-opex"><p>Total opex</p><div><strong id="opexKpi">-</strong><span>USD mil</span></div></article>
-      <article class="metric-card metric-abex"><p>Total abex</p><div><strong id="abexKpi">-</strong><span>USD mil</span></div></article>
-    </section>
-
-    <section class="project-economics" aria-labelledby="projectEconomicsTitle">
+      <div class="dashboard-content">
+    <section id="projectEconomics" class="project-economics viability-unknown" aria-labelledby="projectEconomicsTitle">
       <div class="project-economics-heading">
         <div>
           <h2 id="projectEconomicsTitle">Project viability</h2>
@@ -135,15 +147,9 @@
         <article class="economics-metric viability-metric">
           <span>Viability Check</span>
           <div class="viability-result">
-            <span id="viabilityIcon" class="viability-icon viability-unknown" role="img" aria-label="IRR unavailable">
-              <svg viewBox="0 0 48 48" aria-hidden="true">
-                <path d="M14 7h20l3 6v22l-3 6H14l-3-6V13z" />
-                <path d="M12 15h24M12 33h24M17 10v5m14-5v5M17 33v5m14-5v5M16 20h16M16 28h16" />
-              </svg>
-            </span>
             <strong id="viabilityText">IRR unavailable</strong>
           </div>
-          <small id="viabilityCondition">IRR unavailable</small>
+          <small id="viabilityCondition" aria-live="polite">IRR unavailable</small>
         </article>
       </div>
       <details class="economics-formula">
@@ -152,17 +158,6 @@
         <p>NPV0 = NPV(0%, annual NCF) &times; (1 + 0%). NPV@WACC = NPV(WACC, annual NCF) &times; (1 + WACC)<sup>Disc_Year - start year + 1</sup>, using the workbook's 2026 Disc_Year default. Project IRR = IRR(annual NCF series). If IRR is unavailable but both NPV0 and NPV@WACC are positive, IRR is assumed to be 30%. Economic limit display = MAX(year where gated NCF &ne; 0, selected start year).</p>
         <p>Red: IRR &lt; 11% (not viable). Yellow: 11% &le; IRR &lt; 20% (viable). Green: IRR &ge; 20%, or both NPV0 and NPV@WACC are positive and IRR is assumed to be 30%.</p>
       </details>
-    </section>
-
-    <section class="year-overview" aria-labelledby="yearOverviewTitle">
-      <div class="section-heading rail-heading">
-        <div><h2 id="yearOverviewTitle">Annual overview</h2><p>Production and cost by year</p></div>
-        <div class="rail-buttons">
-          <button type="button" id="yearRailPrev" class="rail-button" aria-label="Scroll to previous years">&lsaquo;</button>
-          <button type="button" id="yearRailNext" class="rail-button" aria-label="Scroll to later years">&rsaquo;</button>
-        </div>
-      </div>
-      <div id="yearRail" class="year-rail" aria-live="polite"></div>
     </section>
 
     <section class="analysis-section" aria-labelledby="analysisTitle">
@@ -241,9 +236,20 @@
       </article>
     </section>
 
+    <section class="year-overview" aria-labelledby="yearOverviewTitle">
+      <div class="section-heading rail-heading">
+        <div><h2 id="yearOverviewTitle">Annual overview</h2><p>Production and cost by year</p></div>
+        <div class="rail-buttons">
+          <button type="button" id="yearRailPrev" class="rail-button" aria-label="Scroll to previous years">&lsaquo;</button>
+          <button type="button" id="yearRailNext" class="rail-button" aria-label="Scroll to later years">&rsaquo;</button>
+        </div>
+      </div>
+      <div id="yearRail" class="year-rail" aria-live="polite"></div>
+    </section>
+
     <section class="technical-summary" aria-labelledby="technicalSummaryTitle">
       <div class="section-heading summary-title">
-        <div><h2 id="technicalSummaryTitle">Technical data summary</h2><p>UTC includes total development, operating, and abandonment costs</p></div>
+        <div><h2 id="technicalSummaryTitle">Technical data summary</h2><p>Production and cost totals for the selected period</p></div>
       </div>
       <div class="summary-columns">
         <section class="summary-group">
@@ -263,18 +269,11 @@
             <div><dt>Abex</dt><dd id="abexTotal">-</dd><small>USD mil</small></div>
           </dl>
         </section>
-        <section class="summary-group unit-cost-group">
-          <h3>Unit costs</h3>
-          <dl>
-            <div><dt>UDC</dt><dd id="udcValue">-</dd><small>USD/boe</small></div>
-            <div><dt>UPC</dt><dd id="upcValue">-</dd><small>USD/boe</small></div>
-            <div><dt>UAC</dt><dd id="uacValue">-</dd><small>USD/boe</small></div>
-            <div><dt>UTC</dt><dd id="utcValue">-</dd><small>USD/boe</small></div>
-            <div><dt>UTC (Gas only)</dt><dd id="utcGasValue">-</dd><small>USD/mmbtu</small></div>
-          </dl>
-        </section>
       </div>
     </section>
+
+      </div>
+    </div>
   </main>
 
   <script>
@@ -325,7 +324,7 @@
         legend: { position: chart.series.length > 1 ? 'top' : 'none', maxLines: 2, textStyle: { color: '#56605e', fontSize: 9 } },
         chartArea: { left: 48, top: chart.series.length > 1 ? 42 : 18, right: 14, bottom: 42, width: '88%', height: '74%' },
         bar: { groupWidth: '68%' },
-        hAxis: { textStyle: { color: '#59615f', fontSize: 9 }, slantedText: true, slantedTextAngle: 55, baselineColor: '#cbd4d1', gridlines: { color: 'transparent' } },
+        hAxis: { ticks: window.dashboardYears.map(String), textStyle: { color: '#59615f', fontSize: 9 }, slantedText: true, slantedTextAngle: 55, baselineColor: '#cbd4d1', gridlines: { color: 'transparent' } },
         vAxis: { viewWindowMode: 'explicit', viewWindow: { min: 0, max: chartMaximum > 0 ? chartMaximum * 1.12 : 1 }, textStyle: { color: '#59615f', fontSize: 9 }, baselineColor: '#cbd4d1', gridlines: { color: '#e6ebe9' } },
         tooltip: { textStyle: { fontSize: 11 } }
       };
@@ -364,9 +363,14 @@
       document.getElementById('npvWaccLabel').textContent =
         `NPV@${formatValue(economics.wacc * 100)}% (${economics.discount_year})`;
 
-      const icon = document.getElementById('viabilityIcon');
-      icon.className = `viability-icon viability-${economics.viability.status}`;
-      icon.setAttribute('aria-label', economics.viability.label);
+      const projectEconomics = document.getElementById('projectEconomics');
+      projectEconomics.classList.remove(
+        'viability-not-viable',
+        'viability-viable',
+        'viability-strongly-viable',
+        'viability-unknown'
+      );
+      projectEconomics.classList.add(`viability-${economics.viability.status}`);
       document.getElementById('viabilityText').textContent = economics.viability.label;
       document.getElementById('viabilityCondition').textContent =
         economics.viability.condition;
@@ -390,7 +394,7 @@
         legend: { position: 'top', alignment: 'start', textStyle: { color: '#555', fontSize: 10 } },
         seriesType: 'bars',
         series: { 1: { type: 'line', lineWidth: 2, pointSize: 0 } },
-        hAxis: { textStyle: { color: '#555', fontSize: 9 }, slantedText: true, slantedTextAngle: 50, baselineColor: '#cbd4d1' },
+        hAxis: { ticks: cashFlowChart.years.map(String), textStyle: { color: '#555', fontSize: 9 }, slantedText: true, slantedTextAngle: 50, baselineColor: '#cbd4d1' },
         vAxis: { textStyle: { color: '#555', fontSize: 9 }, baselineColor: '#cbd4d1', gridlines: { color: '#e6e8e8' } },
         tooltip: { textStyle: { fontSize: 10 } }
       };
@@ -584,6 +588,16 @@
       history.replaceState({}, '', pageUrl);
     }
 
+    function updateCustomPriceVisibility() {
+      document.getElementById('customPriceSettings').hidden =
+        document.getElementById('priceScenario').value !== 'custom';
+    }
+    document.getElementById('priceScenario').addEventListener(
+      'change',
+      updateCustomPriceVisibility
+    );
+    updateCustomPriceVisibility();
+
     document.querySelectorAll('.sensitivity-input').forEach((input) => {
       input.addEventListener('input', () => {
         if (latestDashboardData) renderDashboard(latestDashboardData);
@@ -619,6 +633,7 @@
 
     document.getElementById('resetScenarioSettings').addEventListener('click', () => {
       document.getElementById('priceScenario').value = 'base';
+      updateCustomPriceVisibility();
       document.getElementById('mrpInput').value = defaultMrp;
       document.getElementById('customLiquidPrice').value =
         '{{ default_custom_liquid_price }}';
